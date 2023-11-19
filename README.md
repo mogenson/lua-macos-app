@@ -1,5 +1,7 @@
-# lua-macos-app-template
-A template for a self-contained GUI MacOS app bundle using LuaJIT
+# Lua MacOS App
+A sample GUI Lua REPL, showing how to bundle LuaJIT and LibUI into a self-contained MacOS app.
+
+<img width="472" alt="Screenshot 2023-11-18 at 21 30 53" src="https://github.com/mogenson/lua-macos-app/assets/900731/af7b8155-c2a8-41bd-ae54-48ceff81bcb3">
 
 ## Build libraries
 
