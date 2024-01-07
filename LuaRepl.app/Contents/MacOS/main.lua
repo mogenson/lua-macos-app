@@ -1,10 +1,9 @@
 #!/bin/sh
-_=[[
+--[[ 2>/dev/null
 resources="$(dirname "$0")/../Resources"
 export LUA_PATH="$resources/?.lua;$resources/?/init.lua"
 exec "$resources/luajit" "$0" "$@"
-]]
-_ = nil
+--]]
 
 local objc = require("objc")
 local repl = require("repl")
