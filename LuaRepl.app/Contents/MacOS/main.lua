@@ -56,9 +56,16 @@ local function runRepl(textField, textView)
     table.insert(output, "> ")
     table.insert(output, input)
     table.insert(output, "\n")
+
     local result, err = repl:eval(input)
-    table.insert(output, result or err)
-    table.insert(output, "\n")
+    if result then
+        table.insert(output, result)
+        table.insert(output, "\n")
+    end
+    if err then
+        table.insert(output, err)
+        table.insert(output, "\n")
+    end
 
     textView.string = textView.string:stringByAppendingString(NSString(table.concat(output)))
     textView:scrollToEndOfDocument(textView)
