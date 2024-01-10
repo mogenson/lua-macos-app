@@ -122,7 +122,7 @@ local function main()
     local pool = objc.NSAutoreleasePool:alloc():init()
 
     local NSApp = objc.NSApplication:sharedApplication()
-    assert(NSApp:setActivationPolicy(NSApplicationActivationPolicyRegular) == YES)
+    NSApp:setActivationPolicy(NSApplicationActivationPolicyRegular)
     makeAppMenu(NSApp)
 
     local scrollView = objc.NSTextView:scrollableTextView()
@@ -160,6 +160,7 @@ local function main()
     window:makeKeyAndOrderFront(window)
 
     NSApp:run()
+    pool:drain()
 end
 
 main()
