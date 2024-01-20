@@ -97,7 +97,7 @@ local function makeAppMenu(app)
 end
 
 local function makeAppDelegate(app, textField, textView)
-    local butttonClicked = "buttonClicked:"
+    local buttonClicked = "buttonClicked:"
 
     local AppDelegateClass = objc.newClass("AppDelegate")
     objc.addMethod(AppDelegateClass, "applicationShouldTerminateAfterLastWindowClosed:", "B@:",
@@ -105,7 +105,7 @@ local function makeAppDelegate(app, textField, textView)
             print("quitting...")
             return YES
         end)
-    objc.addMethod(AppDelegateClass, butttonClicked, "v@:@",
+    objc.addMethod(AppDelegateClass, buttonClicked, "v@:@",
         function(self, cmd, sender)
             runRepl(textField, textView)
         end)
@@ -114,7 +114,7 @@ local function makeAppDelegate(app, textField, textView)
     appDelegate:autorelease()
     app:setDelegate(appDelegate)
 
-    return objc.NSButton:buttonWithTitle_target_action(NSString("Eval"), appDelegate, butttonClicked)
+    return objc.NSButton:buttonWithTitle_target_action(NSString("Eval"), appDelegate, buttonClicked)
 end
 
 
