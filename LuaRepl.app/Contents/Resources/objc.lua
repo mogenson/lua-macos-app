@@ -121,23 +121,23 @@ local function sel(name, num_args)
 end
 
 ---call a method for a SEL on a Class or object
----@param self string | Class | id
+---@param receiver string | Class | id
 ---@param selector string | SEL
 ---@param ...? any
 ---@return any
-local function msgSend(self, selector, ...)
+local function msgSend(receiver, selector, ...)
     ---return Method for Class or object and SEL
-    ---@param self Class | id
+    ---@param receiver Class | id
     ---@param selector SEL
     ---@return Method?
-    local function getMethod(self, selector)
+    local function getMethod(receiver, selector)
         -- return method for Class or object and SEL
-        if ffi.istype("Class", self) then
-            return assert(ptr(C.class_getClassMethod(self, selector)))
-        elseif ffi.istype("id", self) then
-            return assert(ptr(C.class_getInstanceMethod(cls(self), selector)))
+        if ffi.istype("Class", receiver) then
+            return assert(ptr(C.class_getClassMethod(receiver, selector)))
+        elseif ffi.istype("id", receiver) then
+            return assert(ptr(C.class_getInstanceMethod(cls(receiver), selector)))
         end
-        assert(false, "self not a Class or object")
+        assert(false, "receiver not a Class or object")
     end
 
     ---convert a Lua variable to a C type if needed
@@ -161,10 +161,10 @@ local function msgSend(self, selector, ...)
         return lua_var -- no conversion necessary
     end
 
-    if type(self) == "string" then self = cls(self) end
+    if type(receiver) == "string" then receiver = cls(receiver) end
     local selector = sel(selector)
-    local method = getMethod(self, selector)
-    local call_args = { self, selector, ... }
+    local method = getMethod(receiver, selector)
+    local call_args = { receiver, selector, ... }
     local char_ptr = assert(ptr(C.method_copyReturnType(method)))
     local objc_type = ffi.string(char_ptr)
     C.free(char_ptr)
@@ -187,7 +187,7 @@ local function msgSend(self, selector, ...)
     table.insert(signature, ")")
     local signature = table.concat(signature)
 
-    -- print(self, selector, signature)
+    -- print(receiver, selector, signature)
     return ffi.cast(signature, C.objc_msgSend)(unpack(call_args))
 end
 
