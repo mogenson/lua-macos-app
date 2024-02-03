@@ -7,10 +7,11 @@ I was curious to learn more about a few niche topics:
 - How to create a GUI app with Lua
 - How LuaJIT's FFI interface works
 
-Below is a small project that helped me explore these questions.
-This app is so simple, it's better used as a template for creating a more substantial app.
+Below is a small project that helped me explore these questions. I'm going to walk through the process of making a Lua REPL (named for the interactive read-evaluate-print-loop of interpreted languages like Lua and Python. Our app will (creatively) be named LuaREPL. It is a MacOS app with a single text entry line, an Eval button, and a multi-line text output area. User entered code is fed from the text entry, evaluated by the Lua interpreter, and printed to the text output. This app is so simple, it's better used as a template for creating a more substantial app.
 
 <img width="367" alt="Screenshot 2024-01-07 at 15 08 09" src="https://github.com/mogenson/lua-macos-app/assets/900731/ccde2c1e-e0b4-40f9-a9da-da0f49fc04c1">
+
+Some knowledge of Lua, C, Objective-C, and MacOS/iOS app development is useful but not required. If there are components that do not make sense when initially presented, hopefully they will when we put everything together at the end.
 
 This article will go through the above topics of learning in reverse order. Starting with…
 
@@ -18,7 +19,7 @@ This article will go through the above topics of learning in reverse order. Star
 
 ## LuaJIT
 
-First, what is LuaJIT? [LuaJIT](https://luajit.org/index.html) is a Just-In-Time compiler and drop in replacement for the standard Lua interpreter. There are numerous ways to install LuaJIT on MacOS. However, since we will eventually want to package LuaJIT into our final, self-contained, MacOS app, let's build it from source.
+First, we need Lua to build our app, but we're going to use a special version of Lua called LuaJIT. What is LuaJIT? [LuaJIT](https://luajit.org/index.html) is a Just-In-Time compiler and drop in replacement for the standard Lua interpreter. There are numerous ways to install LuaJIT on MacOS. However, since we will eventually want to package LuaJIT into our final, self-contained, MacOS app, let's build it from source.
 No dependencies besides make and a C compiler are required. Clone the LuaJIT repo and build with:
 
 ```bash
@@ -28,11 +29,12 @@ $ MACOSX_DEPLOYMENT_TARGET=$(sw_vers --productVersion) make
 ```
 
 The MACOSX_DEPLOYMENT_TARGET environmental variable must be set during building. I'm only targeting my own computer. At the time of writing, the output of sw_vers --productVersion is "14.1.1".
-The resulting luajit binary executable will be in the src directory. This is a stand-alone Lua interpreter that will eventually be copied into our MacOS app. There are no other runtime files that need to accompany luajit.
+
+The resulting `luajit` binary executable will be in the src directory. This stand-alone executable will eventually be copied into our MacOS app. The Lua interpreter, Lua standard library, and LuaJIT specific libraries are all included in the single `luajit` file. Compared to the hundreds of files in specific locations that are needed for the Python interpreter and standard library, this portable Lua interpreter is easy to include inside our app.
 
 ## LuaJIT's FFI interface
 
-Besides being very fast at running Lua code, LuaJIT has a fantastic [FFI interface](https://luajit.org/ext_ffi_api.html). LuaJIT will parse declarations from a C header, generate bindings, and do some type conversion automatically. This makes it really easy to call C code from LuaJIT. Here's an example:
+Besides being very fast at running Lua code, LuaJIT has a fantastic foreign function intervace [(or FFI)](https://luajit.org/ext_ffi_api.html), that lets it call into code written in other languages, using the C function calling convention. LuaJIT will parse declarations from a C header, generate bindings, and do some type conversion automatically. This makes it really easy to call C code from LuaJIT. We will use the FFI module to call into native MacOS libraries to construct and show our app. Here's a simple FFI example:
 
 ```lua
 local ffi = require("ffi")
@@ -46,7 +48,7 @@ ffi.C.printf("Hello %s!", "world")
 
 The multi-line string passed to `ffi.cdef` contains the prototype for libc's `printf` function. LuaJIT's FFI parser can recognize that this is a variadic C function. A Lua binding is created and added to the `ffi.C` namespace. When this `ffi.C.printf` function is called, LuaJIT knows that the string arguments need to be converted into `\0` terminated char pointers, and does so!
 
-This is fun, but we want to do something MacOS specific to reach our end goal of creating a MacOS app. But, most of the MacOS core libraries are written in Objective-C, not C. Objective-C is a message passing language, where named objects are operated on by sending formatted messages to object methods. Here's an Objective-C example to write to the MacOS clipboard.
+This is fun, but we want to do something MacOS specific to reach our end goal of creating a MacOS app. But, most of the MacOS core libraries are written in [Objective-C](https://en.wikipedia.org/wiki/Objective-C), not C. Objective-C is a message passing language, where named objects are operated on by sending formatted messages to object methods. Here's an Objective-C example to write to the MacOS clipboard.
 
 ```objective-c
 #import <Cocoa/Cocoa.h>
@@ -87,7 +89,7 @@ int main() {
 
 > Thanks to Nathan Craddock for showing the [relationship between Objective-C and C](https://nathancraddock.com/blog/2023/writing-to-the-clipboard-the-hard-way)
 
-Here we use `objc_getClass` to get an object by name, `sel_registerName` to get a selector (which is a handle) to an object method by name, and `objc_msgSend` to send a message to an object's selector.
+Let's go over the C functions used above. We use `objc_getClass` to get an object by name, `sel_registerName` to get a selector (which is a handle) to an object method by name, and `objc_msgSend` to send a message to an object's selector.
 
 We could compile this C program with some glue code to use as a Lua module. But with LuaJIT's FFI interface, we can call these C functions directly from Lua. The result of translating the C example above into Lua looks like this:
 
@@ -131,15 +133,15 @@ local ret = main()
 os.exit(ret)
 ```
 
-Loading the AppKit shared library is enough to also load the Objective-C runtime. We define our C functions, a few C types for `id` and `SEL`, and the external constant `NSPasteboardTypeString`. For each step, we use `ffi.cast` to cast the `objc_msgSend` function into the required form. Since LuaJIT can no longer determine the correct argument type from the top level C definitions, we help it out by casting the "Hello from Lua!" string into a char pointer.
+Instead of including headers and linking libraries at compile time. We load the `AppKit` shared library (or framework in Apple language) at runtime. Loading `AppKit` is enough to also load the Objective-C runtime. We define our C functions, a few C types for `id` and `SEL`, and the external constant `NSPasteboardTypeString`. For each step, we use `ffi.cast` to cast the `objc_msgSend` function into the required form. Since LuaJIT can no longer determine the correct argument type from the top level C definitions, we help it out by casting the "Hello from Lua!" string into a char pointer.
 
 ## Objective-C Introspection
 
 The process for calling any method in Objective-C is the same: get the receiver class or object, get the selector, collect the arguments, cast `objc_msgSend` to the right signature, and call. However, manually casting each types back and forth is tedious and very verbose. 
 
-Objective-C provides some runtime functions for checking if a method exists for a class or object and looking up the call signature of a method. We can wrap these method introspection functions in some Lua helper functions that will automatically cast `objc_msgSend` and the provided arguments to the right signature based on the method name.
+Objective-C provides some functions for checking if a method exists for a class or object and looking up the call signature of a method. This is called introspection. We can wrap these method introspection functions in some Lua helper functions that will automatically cast `objc_msgSend` and the provided arguments to the right signature based on the method name.
 
-This app contains a module named [`objc.lua`](https://github.com/mogenson/lua-macos-app/blob/main/LuaRepl.app/Contents/Resources/objc.lua) to handle the Lua to Objective-C dispatching. Let's look at how the module's `msgSend` function looks up method information to call Objective-C methods:
+Our app contains a module named [`objc.lua`](https://github.com/mogenson/lua-macos-app/blob/main/LuaRepl.app/Contents/Resources/objc.lua) to handle the Lua to Objective-C dispatching. We'll have to add some functionality to this module before we can build our app's interface.  Let's look at how the module's `msgSend` function looks up method information to call Objective-C methods:
 
 ```lua
 local function msgSend(receiver, selector, ...)
@@ -200,7 +202,7 @@ The rest of `msgSend` is querying the number of method arguments with `methodGet
 
 ## Metatables
 
-We can use Lua's metatables to fit our helper functions into some convenient Lua syntax. Our `objc.lua` module has an `objc` table to hold the Lua functions we've created so far. We use setmetatable to create a custom `__index` function that calls `objc_lookUpClass`. This function is called with an argument for the table and key every time the `objc` table is indexed but an entry is not found. We'll treat the key argument for this function as an Objective-C class name to look up. Now we can do `objc.NSApplication` to get a pointer of type `struct objc_class` for the `NSApplication` class.
+The Lua language uses a feature called [metatables](https://www.lua.org/pil/13.html) to set the behavior of tables and other types (similar to [dunder methods](https://mathspp.com/blog/pydonts/dunder-methods) in Python). We can use metatables to fit our helper functions into some convenient Lua syntax and continue to make our code less verbose. Our `objc.lua` module has an `objc` table to hold the Lua functions we've created so far. We use setmetatable to create a custom `__index` function that calls `objc_lookUpClass`. This function is called with an argument for the table and key every time the `objc` table is indexed but an entry is not found. We'll treat the key argument for this function as an Objective-C class name to look up. Now we can do `objc.NSApplication` to get a pointer of type `struct objc_class` for the `NSApplication` class.
 
 ```lua
 local objc = setmetatable({
@@ -214,7 +216,7 @@ local objc = setmetatable({
 
 We can also set a metatable with a custom `__index` function for the `struct objc_class` type. This time, we'll treat the key argument as the selector for a method to call on the class. Instead of a value, we create and return a function with `self` as the first argument. This matches Lua's normal syntax for calling a Lua method by using the `()` operator to call the function returned by `__index` and Lua's `:` syntax to pass `self` as the first argument. 
 
-Since Objective-C uses `:` as part of selector names, but that's a reserved token for Lua, we'll write our selector names in Lua with `_` and subsitute the characters before calling `sel_registerName`. If the selector name doesn't end with `_`, we'll add one so all selector names have a final `:`.
+Since Objective-C uses `:` as part of selector names, but that's a reserved token for Lua, we'll write our selector names in Lua with `_` and substitute the characters before calling `sel_registerName`. If the selector name doesn't end with `_`, we'll add one so all selector names have a final `:`.
 
 ```lua
 ffi.metatype("struct objc_class", {
@@ -231,7 +233,7 @@ ffi.metatype("struct objc_class", {
 })
 ```
 
-With this we can do `objc.NSApplication:setActivationPolicy(1)` to lookup the `NSApplication` class and call it's `setActivationPolicy:` method. Way more consise than:
+With this we can do `objc.NSApplication:setActivationPolicy(1)` to lookup the `NSApplication` class and call it's `setActivationPolicy:` method. Way more concise than:
 
 ```lua
 local class = C.objc_getClass("NSApplication")
@@ -243,7 +245,7 @@ ffi.cast("BOOL(*)(Class,SEL,NSInteger)", C.objc_msgSend)(class, selector, 1)
 
 There's one last important part to the way that Objective-C frameworks like AppKit work: delegates. If you want to receive events and notifications from a class, you need to create another class with some predefined methods and set it as the delegate for the first class.
 
-Here's how to make a button and use a delegate to get a callback every time the button is clicked:
+Here's how to make a button and use a delegate to get a callback every time the button is clicked. We'll use this for the Eval button of our app.
 
 ```lua
 local ButtonDelegateClass = objc.newClass("ButtonDelegate")
@@ -293,9 +295,9 @@ local function addMethod(class, selector, types, func)
 end
 ```
 
-## Layout
+## App Layout
 
-We now have all the Objective-C pieces we need to create our app. The main function can be seen below:
+We now have all the Objective-C pieces we need to create our app. The main function of our LuaREPL app can be seen below:
 
 ```lua
 local function main()
@@ -367,7 +369,7 @@ end
 
 ## REPL
 
-Since Lua is an interpreted language, we can evaluate new chunks of code at runtime. As seen below, Lua provides a few utilities to acomplish this:
+Since Lua is an interpreted language, it can evaluate new chunks of code at runtime. As seen below, Lua provides a few utilities to accomplish this:
 
 ```lua
 function repl:eval(chunk)
@@ -390,17 +392,17 @@ function repl:eval(chunk)
 end
 ```
 
-The `loadstring` function will take a string, compile it to bytecode, and return a function to run this bytecode. If there is a complication error the returned function is nil, and the second returned argument is an error string.
+The `loadstring` function will take a string, compile it to bytecode, and return a function to run this bytecode. If there is a compilation error the returned function is nil, and the second returned argument is an error string.
 
-Since user entered code may have mistakes or errors that could cause a crash, we will run the compiled function in a protected environment, with the `pcall` function. This is Lua's equivalent of `try` and `catch`.
+Since user entered code may have mistakes or errors that could cause a crash, we will run the compiled function in a protected environment, with the `pcall` function. This is Lua's equivalent of Python's `try` and `except`.
 
-On success the `pcall` function returns `true`, then any number of return arguments from the compiled function. On failure `pcall` returns `false` then an error message. We collect all the return arguments from `pcall` into a table so we can count the total number of arguments and iterate over them. On success, we concatenate all of the compiled function's return arguments into a comma-separated string to print to the text view area.
+On success `pcall` returns `true`, then some number of return arguments from the compiled function. On failure `pcall` returns `false` then an error message. Since we don't know how many arguments the user's code will return, we collect all the return arguments into a table so we can count and iterate over them. On success, we concatenate all of the compiled function's return arguments into a comma-separated string to print to the text view area.
 
 Only values returned by the compiled function will be printed to the text output. Code such as `a = 1` or `2 + 3` will not produce a printed output. Explicitly returning an expression with `a = 1 return a` or `return 2 + 3` will print the intended output.
 
 ## Packaging
 
-Now we have a fully functional Lua REPL app. Let's package everything into a MacOS app bundle. This is actually easy to do manually. MacOS apps are just directories and files within a top level directory that ends in `.app`. Here's our app:
+Now we have a fully functional LuaREPL app. Let's package everything into a MacOS app bundle. This is actually easy to do manually. MacOS apps are just directories and files within a top level directory that ends in `.app`. Here's our app:
 
 <img width="360" alt="Screenshot 2024-01-21 at 10 28 24" src="https://github.com/mogenson/lua-macos-app/assets/900731/789f3566-2e7c-4fe9-9837-da16be120096">
 
@@ -442,9 +444,9 @@ objc.loadFramework("AppKit")
 ... continued ...
 ```
 
-The `#!/bin/sh` line is known as a [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)) and calls `/bin/sh` to run the script. The next few lines are interpreted as shell code. The first line, `--[[` is an invalid shell command, but `2>/dev/null` silences the error message produced. The next line takes the absolute path to the `$0` argument, which is the name of the script being run, `main.lua`, appends the relative path `../Resources`, and sets the `resources` variable. The next line sets the `LUA_PATH` environmental variable using the previously defined `resources` variable. Lua searches `LUA_PATH` for modules to load when require is called. This means that no matter where our app is located, Lua will be able to load modules from the apps Resources directory. Finally, the next line replaces the shell process with an invocation of `luajit`, at the path `../Resources/luajit`, passing the name of the `main.lua` file, and using `$@` to pass any extra command line arguments.
+The `#!/bin/sh` line is known as a [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)) and calls `/bin/sh` to run the script. The next few lines are interpreted as shell code. The first line, `--[[` is an invalid shell command, but `2>/dev/null` silences the error message produced. The next line takes the absolute path to the `$0` argument, which is the name of the script being run, `main.lua`, appends the relative path `../Resources`, and sets the `resources` variable. The next line sets the `LUA_PATH` environmental variable using the previously defined `resources` variable. Lua searches `LUA_PATH` for modules to load when require is called to load a Lua module (like `objc.lua`). This means that no matter where our app is located, Lua will be able to load modules from the apps Resources directory. Finally, the next line replaces the shell process with an invocation of `luajit`, at the path `../Resources/luajit`, passing the name of the `main.lua` file, and using `$@` to pass any extra command line arguments.
 
-Now `luajit` runs the `main.lua` file starting from the top again. The `#!/bin/sh` shebang is ignored by Lua, and the following shell code is wrapped in a multi-line Lua comment via `--[[` `]]--` so it is not evaluated. The rest of the `main.lua` file is regular Lua that starts our app!
+Now `luajit` runs the `main.lua` file starting from the top again. The `#!/bin/sh` line is ignored by Lua, and the following shell code is wrapped in a multi-line Lua comment via `--[[` `]]--` so it is not evaluated. The rest of the `main.lua` file is regular Lua that starts our app!
 
 ## Conclusion
 
@@ -454,10 +456,12 @@ If you share this app with a friend, they can edit `main.lua` in a text editor a
 
 I'd like to thank the authors of [fjolnir/TLC](https://github.com/fjolnir/TLC) and and [luapower/objc](https://github.com/luapower/objc) for their Objective-C Lua implementations. Unfortunately neither of these projects still run on modern versions of MacOS, but their designs and ideas were immensely helpful.
 
-There are two final peices of the Objective-C runtime that are no longer fully functional on modern versions of MacOS: protocols and bridgesupport.
+There are two other pieces of the Objective-C runtime that are no longer fully functional on modern versions of MacOS: protocols and bridgesupport.
 
 A protocol is a set of methods a delegate should implement. You can lookup a protocol via name with `objc_getProtocol` and get type information for a method, similar to how we can lookup a method from a class or object in `msgSend`. Unfortunately, Objective-C will now only generate a protocol if it is used at compile time. Since we're not compiling any Objective-C code, `objc_getProtocol` returns `NULL`.
 
-Bridgesupport files are xml files shipped with Objective-C frameworks that contain class names, method names, protocol methods, and type encodings. These files can be parsed to generate the correct selector name or method type encoding. However, these files have not been updated in years and now have errors and incomplete data.
+Bridgesupport files are xml files shipped with Apple frameworks that contain class names, method names, protocol methods, and type encodings. These files can be parsed to generate the correct selector name or method type encoding. However, these files have not been updated in years and now have errors and incomplete data.
 
 The result is that for a Lua function like `addMethod`, the user needs to provide the correct Objective-C type encoding string. There's no longer a way to look this information up for an existing method at runtime.
+
+Using the Lua to Objective-C approach from this article, we can use any part of Apple's frameworks. This app could be ported to run on an iPhone or iPad with [UIKit](https://developer.apple.com/documentation/uikit?language=objc), or we could add GPU accelerated graphics with the [Metal](https://developer.apple.com/documentation/metal/metal_sample_code_library/rendering_a_scene_with_deferred_lighting_in_objective-c?language=objc) framework!
