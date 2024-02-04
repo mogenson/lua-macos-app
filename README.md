@@ -49,6 +49,15 @@ The MACOSX_DEPLOYMENT_TARGET environmental variable must be set during building.
 
 The resulting `luajit` binary executable will be in the src directory. This stand-alone executable will eventually be copied into our MacOS app. The Lua interpreter, Lua standard library, and LuaJIT specific libraries are all included in the single `luajit` file. Compared to the hundreds of files in specific locations that are needed for the Python interpreter and standard library, this portable Lua interpreter is easy to include inside our app.
 
+> You can also build LuaJIT as a universal binary for x86_64 and arm64 with the following commands! A universal `luajit` binary is commited to this repo's app bundle.
+> ```
+> export MACOSX_DEPLOYMENT_TARGET=14
+> make LUAJIT_T=luajit-x86_64 HOST_CC='clang -target arm64-apple-macos14' STATIC_CC='clang -target x86_64-apple-macos14' DYNAMIC_CC='clang -target x86_64-apple-macos14 -fPIC' TARGET_LD='clang -target x86_64-apple-macos14' TARGET_AR='ar -r'
+> make clean
+> make LUAJIT_T=luajit-arm64 HOST_CC='clang -target arm64-apple-macos14' STATIC_CC='clang -target arm64-apple-macos14' DYNAMIC_CC='clang -target arm64-apple-macos14 -fPIC' TARGET_LD='clang -target arm64-apple-macos14' TARGET_AR='ar -r'
+> lipo -create -output src/luajit src/luajit-x86_64 src/luajit-arm64
+> ```
+
 ## LuaJIT's FFI interface
 
 Besides being very fast at running Lua code, LuaJIT has a fantastic foreign function intervace [(or FFI)](https://luajit.org/ext_ffi_api.html), that lets it call into code written in other languages, using the C function calling convention. LuaJIT will parse declarations from a C header, generate bindings, and do some type conversion automatically. This makes it really easy to call C code from LuaJIT. We will use the FFI module to call into native MacOS libraries to construct and show our app. Here's a simple FFI example:
@@ -60,7 +69,7 @@ ffi.cdef([[
   int printf(const char *fmt, ...);
 ]])
 
-ffi.C.printf("Hello %s!", "world")
+ffi.C.printf("Hello %s!\n", "world")
 ```
 
 The multi-line string passed to `ffi.cdef` contains the prototype for libc's `printf` function. LuaJIT's FFI parser can recognize that this is a variadic C function. A Lua binding is created and added to the `ffi.C` namespace. When this `ffi.C.printf` function is called, LuaJIT knows that the string arguments need to be converted into `\0` terminated char pointers, and does so!
