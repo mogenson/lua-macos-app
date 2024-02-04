@@ -1,6 +1,8 @@
 # Creating a MacOS app with Lua
 And nothing else! No compiled code. No XCode.
 
+https://medium.com/@michael.mogenson/write-a-macos-app-with-lua-342148381e25
+
 Here is a small project that helped me explore the following topics:
 
 I was curious to learn more about a few niche topics:
