@@ -1,17 +1,29 @@
 # Creating a MacOS app with Lua
+And nothing else! No compiled code. No XCode.
+
+Here is a small project that helped me explore the following topics:
 
 I was curious to learn more about a few niche topics:
 - How MacOS apps are packaged
-- How to bundle a scripting language in a self-contained manner inside a MacOS app
+- How to bundle a self-contained scripting language
 - How to compile and run Lua code on the fly
 - How to create a GUI app with Lua
 - How LuaJIT's FFI interface works
 
-Below is a small project that helped me explore these questions. I'm going to walk through the process of making a Lua REPL (named for the interactive read-evaluate-print-loop of interpreted languages like Lua and Python. Our app will (creatively) be named LuaREPL. It is a MacOS app with a single text entry line, an Eval button, and a multi-line text output area. User entered code is fed from the text entry, evaluated by the Lua interpreter, and printed to the text output. This app is so simple, it's better used as a template for creating a more substantial app.
+Here's the app that we're going to make:
 
 <img width="367" alt="Screenshot 2024-01-07 at 15 08 09" src="https://github.com/mogenson/lua-macos-app/assets/900731/ccde2c1e-e0b4-40f9-a9da-da0f49fc04c1">
 
+Below is a small project that helped me explore these questions. I'm going to walk through the process of making a Lua REPL (named for the interactive read-evaluate-print-loop of interpreted languages like Lua and Python. Our app will (creatively) be named LuaREPL. It is a MacOS app with a single text entry line, an Eval button, and a multi-line text output area. User entered code is fed from the text entry, evaluated by the Lua interpreter, and printed to the text output. This app is so simple, it's better used as a template for creating a more substantial app.
 Some knowledge of Lua, C, Objective-C, and MacOS/iOS app development is useful but not required. If there are components that do not make sense when initially presented, hopefully they will when we put everything together at the end.
+
+##Why?
+
+I don't know. I'm so bad at answering the question why. Ask me how. The next 500 lines of text are about how.
+I saw a video about writing an Android app in C. The author explored the Android OS and determined the minimal setup required to draw to the screen. I wanted to do something similar with Lua, my favorite small language. I own a MacBook. Could I create a native MacOS app without first downloading an 12GB XCode installation image? Could I do everything from scratch, instead of using (fabulous) projects like LÖVE (a C++ game engine with Lua bindings) or Libui (a cross platform UI library for C)?
+I suppose this would be good for an internal tool at a company. Distribute a single Lua text file that employees would run as an app. Update that text file and the app updates. No need to go through Apple's App Store for distribution.
+
+###Continuing on…
 
 This article will go through the above topics of learning in reverse order. Starting with…
 
@@ -20,6 +32,9 @@ This article will go through the above topics of learning in reverse order. Star
 ## LuaJIT
 
 First, we need Lua to build our app, but we're going to use a special version of Lua called LuaJIT. What is LuaJIT? [LuaJIT](https://luajit.org/index.html) is a Just-In-Time compiler and drop in replacement for the standard Lua interpreter. There are numerous ways to install LuaJIT on MacOS. However, since we will eventually want to package LuaJIT into our final, self-contained, MacOS app, let's build it from source.
+
+You said we wouldn't need to compile anything? Ya I lied. You can brew install luajit if you want. But for bundling luajit with our app, it's not hard to build. I promise.
+
 No dependencies besides make and a C compiler are required. Clone the LuaJIT repo and build with:
 
 ```bash
@@ -452,9 +467,15 @@ Now `luajit` runs the `main.lua` file starting from the top again. The `#!/bin/s
 
 Thanks for following along with this journey to create a MacOS app using only Lua. If you have an Apple Silicon computer, you should be able to clone and run the app directly from the GitHub repo. Intel Mac users will need to rebuild `luajit` for their architecture. As far as I know there's no way to build `luajit` as a universal binary since it includes hand crafted assembly.
 
+But, maybe we could include an x86 and am64 version of luajit and detect which interpreter to call in the shebang startup script…
+
 If you share this app with a friend, they can edit `main.lua` in a text editor and create a complete new app. No recompling or downloading developer tools necessary. Also the only dependences are the single `luajit` binary, at 609 kB, and `objc.lua`, at 286 lines. That's way smaller than bundling a Python interpreter and all of the required modules!
 
 I'd like to thank the authors of [fjolnir/TLC](https://github.com/fjolnir/TLC) and and [luapower/objc](https://github.com/luapower/objc) for their Objective-C Lua implementations. Unfortunately neither of these projects still run on modern versions of MacOS, but their designs and ideas were immensely helpful.
+
+Where to next? Using the Lua to Objective-C approach from this article, we can use any part of Apple's frameworks. This app could be ported to run on an iPhone or iPad with [UIKit](https://developer.apple.com/documentation/uikit?language=objc), or we could add GPU accelerated graphics with the [Metal](https://developer.apple.com/documentation/metal/metal_sample_code_library/rendering_a_scene_with_deferred_lighting_in_objective-c?language=objc) framework!
+
+## Appendix
 
 There are two other pieces of the Objective-C runtime that are no longer fully functional on modern versions of MacOS: protocols and bridgesupport.
 
@@ -463,5 +484,3 @@ A protocol is a set of methods a delegate should implement. You can lookup a pro
 Bridgesupport files are xml files shipped with Apple frameworks that contain class names, method names, protocol methods, and type encodings. These files can be parsed to generate the correct selector name or method type encoding. However, these files have not been updated in years and now have errors and incomplete data.
 
 The result is that for a Lua function like `addMethod`, the user needs to provide the correct Objective-C type encoding string. There's no longer a way to look this information up for an existing method at runtime.
-
-Using the Lua to Objective-C approach from this article, we can use any part of Apple's frameworks. This app could be ported to run on an iPhone or iPad with [UIKit](https://developer.apple.com/documentation/uikit?language=objc), or we could add GPU accelerated graphics with the [Metal](https://developer.apple.com/documentation/metal/metal_sample_code_library/rendering_a_scene_with_deferred_lighting_in_objective-c?language=objc) framework!
