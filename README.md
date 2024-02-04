@@ -19,13 +19,13 @@ Here's the app that we're going to make:
 Below is a small project that helped me explore these questions. I'm going to walk through the process of making a Lua REPL (named for the interactive read-evaluate-print-loop of interpreted languages like Lua and Python. Our app will (creatively) be named LuaREPL. It is a MacOS app with a single text entry line, an Eval button, and a multi-line text output area. User entered code is fed from the text entry, evaluated by the Lua interpreter, and printed to the text output. This app is so simple, it's better used as a template for creating a more substantial app.
 Some knowledge of Lua, C, Objective-C, and MacOS/iOS app development is useful but not required. If there are components that do not make sense when initially presented, hopefully they will when we put everything together at the end.
 
-##Why?
+## Why?
 
 I don't know. I'm so bad at answering the question why. Ask me how. The next 500 lines of text are about how.
 I saw a video about writing an Android app in C. The author explored the Android OS and determined the minimal setup required to draw to the screen. I wanted to do something similar with Lua, my favorite small language. I own a MacBook. Could I create a native MacOS app without first downloading an 12GB XCode installation image? Could I do everything from scratch, instead of using (fabulous) projects like LÖVE (a C++ game engine with Lua bindings) or Libui (a cross platform UI library for C)?
 I suppose this would be good for an internal tool at a company. Distribute a single Lua text file that employees would run as an app. Update that text file and the app updates. No need to go through Apple's App Store for distribution.
 
-###Continuing on…
+### Continuing on…
 
 This article will go through the above topics of learning in reverse order. Starting with…
 
