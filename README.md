@@ -113,8 +113,6 @@ int main() {
 }
 ```
 
-> Thanks to Nathan Craddock for showing the [relationship between Objective-C and C](https://nathancraddock.com/blog/2023/writing-to-the-clipboard-the-hard-way)
-
 Let's go over the C functions used above. We use `objc_getClass` to get an object by name, `sel_registerName` to get a selector (which is a handle) to an object method by name, and `objc_msgSend` to send a message to an object's selector.
 
 We could compile this C program with some glue code to use as a Lua module. But with LuaJIT's FFI interface, we can call these C functions directly from Lua. The result of translating the C example above into Lua looks like this:
@@ -476,15 +474,19 @@ Now `luajit` runs the `main.lua` file starting from the top again. The `#!/bin/s
 
 ## Conclusion
 
-Thanks for following along with this journey to create a MacOS app using only Lua. If you have an Apple Silicon computer, you should be able to clone and run the app directly from the GitHub repo. Intel Mac users will need to rebuild `luajit` for their architecture. As far as I know there's no way to build `luajit` as a universal binary since it includes hand crafted assembly.
-
-But, maybe we could include an x86 and am64 version of luajit and detect which interpreter to call in the shebang startup script…
+Thanks for following along with this journey to create a MacOS app using only Lua. You should be able to clone and run the app directly from the GitHub repo. 
 
 If you share this app with a friend, they can edit `main.lua` in a text editor and create a complete new app. No recompling or downloading developer tools necessary. Also the only dependences are the single `luajit` binary, at 609 kB, and `objc.lua`, at 286 lines. That's way smaller than bundling a Python interpreter and all of the required modules!
 
+Where to next? Using the Lua to Objective-C approach from this article, we can use any part of Apple's frameworks. This app could be ported to run on an iPhone or iPad with [UIKit](https://developer.apple.com/documentation/uikit?language=objc), or we could add GPU accelerated graphics with the [Metal](https://developer.apple.com/documentation/metal/metal_sample_code_library/rendering_a_scene_with_deferred_lighting_in_objective-c?language=objc) framework!
+
+## Acknowledgements
+
 I'd like to thank the authors of [fjolnir/TLC](https://github.com/fjolnir/TLC) and and [luapower/objc](https://github.com/luapower/objc) for their Objective-C Lua implementations. Unfortunately neither of these projects still run on modern versions of MacOS, but their designs and ideas were immensely helpful.
 
-Where to next? Using the Lua to Objective-C approach from this article, we can use any part of Apple's frameworks. This app could be ported to run on an iPhone or iPad with [UIKit](https://developer.apple.com/documentation/uikit?language=objc), or we could add GPU accelerated graphics with the [Metal](https://developer.apple.com/documentation/metal/metal_sample_code_library/rendering_a_scene_with_deferred_lighting_in_objective-c?language=objc) framework!
+Thanks to Nathan Craddock for showing the relationship between Objective-C and C in the [NSPasteboard example](https://nathancraddock.com/blog/2023/writing-to-the-clipboard-the-hard-way/).
+
+Thanks to A. Wilcox and Chloé Vulquin for the LuaJIT universal binary [build instructions](https://github.com/mogenson/lua-macos-app/issues/2).
 
 ## Appendix
 
