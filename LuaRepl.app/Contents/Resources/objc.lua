@@ -81,14 +81,14 @@ local type_encoding = setmetatable({
 })
 
 ---convert a NULL pointer to nil
----@param p cdata
+---@param p cdata pointer
 ---@return cdata | nil
 local function ptr(p)
     if p == nil then return nil else return p end
 end
 
 ---return a Class from name or object
----@param name string | Class
+---@param name string | Class | id
 ---@return Class
 local function cls(name)
     assert(name)
@@ -121,9 +121,9 @@ local function sel(name, num_args)
 end
 
 ---call a method for a SEL on a Class or object
----@param receiver string | Class | id
----@param selector string | SEL
----@param ...? any
+---@param receiver string | Class | id the class or object
+---@param selector string | SEL name of method
+---@param ...? any additional method parameters
 ---@return any
 local function msgSend(receiver, selector, ...)
     ---return Method for Class or object and SEL
@@ -192,12 +192,16 @@ local function msgSend(receiver, selector, ...)
 end
 
 ---load a Framework
----@param framework string
+---@param framework string framework name without the '.framework' extension
 local function loadFramework(framework)
     -- on newer versions of MacOS this is a broken symbolic link, but dlopen() still succeeds
     ffi.load(string.format("/System/Library/Frameworks/%s.framework/%s", framework, framework), true)
 end
 
+---create a new custom class from an optional base class
+---@param name string name of new class
+---@param super_class? string | Class parent class, or NSObject if omitted
+---@return Class
 local function newClass(name, super_class)
     assert(name and type(name) == "string")
     local super_class = cls(super_class or "NSObject")
@@ -206,9 +210,14 @@ local function newClass(name, super_class)
     return class
 end
 
+---add a method to a custom class
+---@param class string | Class class created with newClass()
+---@param selector string | SEL name of method
+---@types string Objective-C type encoded method arguments and return type
+---@func function lua callback function for method implementation
 local function addMethod(class, selector, types, func)
     assert(type(func) == "function")
-    assert(type(types) == "string") -- and #types - 1 == debug.getinfo(func).nparams)
+    assert(type(types) == "string")
 
     local class = cls(class)
     local selector = sel(selector)

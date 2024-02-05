@@ -1,6 +1,10 @@
 local repl = { buffer = "" }
 
-function repl:eval(text) --> result, error
+---evaluate a chunk of lua code
+---@param text string code chunk
+---@return string | nil result returned values of chunk in comma separated string
+---@return string | nil error message if eval failed
+function repl:eval(text)
     local chunk = self.buffer .. text
 
     local func, err = loadstring(chunk)
